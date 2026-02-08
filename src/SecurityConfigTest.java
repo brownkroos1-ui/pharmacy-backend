@@ -56,15 +56,15 @@ public class SecurityConfigTest {
     }
 
     @Test
-    @WithMockUser(roles = "USER")
-    void testAccessToAdminEndpoint_WithUserRole_ShouldBeForbidden() throws Exception {
+    @WithMockUser(roles = "CASHIER")
+    void testAccessToAdminEndpoint_WithCashierRole_ShouldBeForbidden() throws Exception {
         mockMvc.perform(get("/api/admin/test"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(roles = "USER")
-    void testAccessToUserEndpoint_WithUserRole_ShouldSucceed() throws Exception {
+    @WithMockUser(roles = "CASHIER")
+    void testAccessToUserEndpoint_WithCashierRole_ShouldSucceed() throws Exception {
         mockMvc.perform(get("/api/user/test"))
                 .andExpect(status().isOk());
     }

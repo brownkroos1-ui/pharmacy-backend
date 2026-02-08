@@ -69,12 +69,19 @@ public class AdminDashboardSecurityTest {
 
         mockMvc.perform(get("/api/admin/dashboard").header("Authorization", "Bearer admin-token"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalUsers", is(1)));
+                .andExpect(jsonPath("$.totalUsers", is(1)))
+                .andExpect(jsonPath("$.totalMedicines", is(2)))
+                .andExpect(jsonPath("$.lowStockMedicines", is(3)))
+                .andExpect(jsonPath("$.outOfStockMedicines", is(4)))
+                .andExpect(jsonPath("$.totalSales", is(5)))
+                .andExpect(jsonPath("$.todaySalesAmount", is(6.0)))
+                .andExpect(jsonPath("$.completedSales", is(7)))
+                .andExpect(jsonPath("$.cancelledSales", is(8)));
 
-        // user token
+        // cashier token
         Claims userClaims = Jwts.claims();
-        userClaims.setSubject("user");
-        userClaims.put("role", "USER");
+        userClaims.setSubject("cashier");
+        userClaims.put("role", "CASHIER");
 
         @SuppressWarnings("unchecked")
         Jws<Claims> userJws = mock(Jws.class);
@@ -83,11 +90,11 @@ public class AdminDashboardSecurityTest {
 
         org.springframework.security.core.userdetails.User userDetails =
                 new org.springframework.security.core.userdetails.User(
-                        "user", "pass",
-                        java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"))
+                        "cashier", "pass",
+                        java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_CASHIER"))
                 );
 
-        when(userDetailsService.loadUserByUsername("user")).thenReturn(userDetails);
+        when(userDetailsService.loadUserByUsername("cashier")).thenReturn(userDetails);
 
         mockMvc.perform(get("/api/admin/dashboard").header("Authorization", "Bearer user-token"))
                 .andExpect(status().isForbidden());

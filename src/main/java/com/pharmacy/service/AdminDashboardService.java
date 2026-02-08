@@ -46,7 +46,7 @@ public class AdminDashboardService {
 
         return new AdminDashboardDto(
                 userRepo.count(),
-                medicineRepo.count(),
+                medicineRepo.countByActiveTrue(),
                 medicineRepo.countLowStockMedicines(lowStockThreshold),
                 medicineRepo.countOutOfStockMedicines(),
                 saleRepo.count(),

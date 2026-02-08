@@ -5,7 +5,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +26,8 @@ public class SaleController {
 
     private final SaleRepository saleRepository;
     private final SaleService saleService;
+    private static final long SUMMARY_CACHE_TTL_MS = 5 * 60 * 1000L;
+    private final Map<String, CacheEntry> monthlySummaryCache = new ConcurrentHashMap<>();
 
     public SaleController(SaleRepository saleRepository, SaleService saleService) {
         this.saleRepository = saleRepository;
@@ -118,7 +123,73 @@ public class SaleController {
             @RequestParam int year,
             @RequestParam int month) {
 
-        YearMonth ym = YearMonth.of(year, month);
+        return buildMonthlySummary(YearMonth.of(year, month));
+    }
+
+    // ================= PROFIT =================
+
+    @GetMapping("/profit/summary")
+    public ProfitSummaryDto getProfitSummary(
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end) {
+        DateRange range = resolveRange(start, end);
+        return saleService.getProfitSummary(range.start(), range.end());
+    }
+
+    @GetMapping("/profit/series")
+    public List<ProfitPointDto> getProfitSeries(
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(defaultValue = "DAILY") String period) {
+        DateRange range = resolveRange(start, end);
+        ProfitPeriod profitPeriod = ProfitPeriod.from(period);
+        return saleService.getProfitSeries(range.start(), range.end(), profitPeriod);
+    }
+
+    @GetMapping("/profit/top")
+    public List<ProfitByMedicineDto> getTopProfitMedicines(
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(defaultValue = "5") int limit) {
+        if (limit < 1 || limit > 50) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "limit must be between 1 and 50"
+            );
+        }
+        DateRange range = resolveRange(start, end);
+        return saleService.getTopProfitMedicines(range.start(), range.end(), limit);
+    }
+
+    @GetMapping("/summary/monthly/range")
+    public List<MonthlySaleSummary> getMonthlySummaryRange(
+            @RequestParam int year,
+            @RequestParam int month,
+            @RequestParam(defaultValue = "6") int count) {
+
+        if (count < 1 || count > 24) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "count must be between 1 and 24"
+            );
+        }
+
+        String cacheKey = year + "-" + month + "-" + count;
+        CacheEntry cached = monthlySummaryCache.get(cacheKey);
+        if (cached != null && !cached.isExpired()) {
+            return new ArrayList<>(cached.data());
+        }
+
+        YearMonth end = YearMonth.of(year, month);
+        List<MonthlySaleSummary> summaries = new ArrayList<>();
+        for (int i = count - 1; i >= 0; i--) {
+            summaries.add(buildMonthlySummary(end.minusMonths(i)));
+        }
+        monthlySummaryCache.put(cacheKey, new CacheEntry(summaries));
+        return summaries;
+    }
+
+    private MonthlySaleSummary buildMonthlySummary(YearMonth ym) {
         LocalDateTime start = ym.atDay(1).atStartOfDay();
         LocalDateTime end = ym.atEndOfMonth().atTime(LocalTime.MAX);
 
@@ -145,5 +216,33 @@ public class SaleController {
                         SaleStatus.VALID, start, end).doubleValue());
 
         return summary;
+    }
+
+    private record CacheEntry(List<MonthlySaleSummary> data, long cachedAt) {
+        CacheEntry(List<MonthlySaleSummary> data) {
+            this(data, System.currentTimeMillis());
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() - cachedAt > SUMMARY_CACHE_TTL_MS;
+        }
+    }
+
+    private record DateRange(LocalDate start, LocalDate end) {}
+
+    private DateRange resolveRange(String start, String end) {
+        LocalDate endDate = end == null || end.isBlank()
+                ? LocalDate.now()
+                : LocalDate.parse(end);
+        LocalDate startDate = start == null || start.isBlank()
+                ? endDate.minusDays(29)
+                : LocalDate.parse(start);
+        if (startDate.isAfter(endDate)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "start must be on or before end"
+            );
+        }
+        return new DateRange(startDate, endDate);
     }
 }

@@ -23,6 +23,7 @@ public class Sale {
     @JoinColumn(name = "medicine_id", nullable = false)
     private Medicine medicine;
 
+    @Column(name = "quantity", nullable = false)
     private Integer quantitySold;
     private LocalDateTime saleDate;
 

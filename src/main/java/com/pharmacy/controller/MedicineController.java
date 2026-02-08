@@ -27,13 +27,13 @@ public class MedicineController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public List<Medicine> getAllMedicines() {
         return medicineService.getAllMedicines();
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CASHIER')")
     public Medicine getMedicineById(@PathVariable Long id) {
         return medicineService.getMedicineById(id);
     }
@@ -42,6 +42,12 @@ public class MedicineController {
     @PreAuthorize("hasRole('ADMIN')")
     public Medicine updateMedicine(@PathVariable Long id, @Valid @RequestBody Medicine medicine) {
         return medicineService.updateMedicine(id, medicine);
+    }
+
+    @PutMapping("/batch/{batchNumber}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Medicine updateMedicineByBatch(@PathVariable String batchNumber, @Valid @RequestBody Medicine medicine) {
+        return medicineService.updateMedicineByBatch(batchNumber, medicine);
     }
 
     @DeleteMapping("/{id}")
@@ -54,5 +60,10 @@ public class MedicineController {
     @PreAuthorize("hasRole('ADMIN')")
     public List<Medicine> getLowStockMedicines() {
         return medicineService.getLowStockMedicines();
+    }
+
+    @GetMapping("/threshold")
+    public int getLowStockThreshold() {
+        return medicineService.getLowStockThreshold();
     }
 }

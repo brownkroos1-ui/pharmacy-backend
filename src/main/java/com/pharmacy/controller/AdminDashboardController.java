@@ -7,7 +7,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping({"/api/admin/dashboard", "/admin/dashboard"})
+@RequestMapping("/api/admin/dashboard")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminDashboardController {
 

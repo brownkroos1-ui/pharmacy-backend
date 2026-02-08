@@ -24,11 +24,11 @@ public class MedicineService {
     }
 
     public List<Medicine> getAllMedicines() {
-        return medicineRepository.findAll();
+        return medicineRepository.findByActiveTrue();
     }
 
     public Medicine getMedicineById(Long id) {
-        return medicineRepository.findById(id)
+        return medicineRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Medicine with ID " + id + " not found"));
     }
 
@@ -37,6 +37,8 @@ public class MedicineService {
         if (medicine == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Medicine data cannot be null");
         }
+        validatePricing(medicine);
+        validateBatchNumberUnique(medicine.getBatchNumber(), null);
         return medicineRepository.save(medicine);
     }
 
@@ -45,12 +47,18 @@ public class MedicineService {
         if (medicineDetails == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Medicine details cannot be null");
         }
-        return medicineRepository.findById(id)
+        validatePricing(medicineDetails);
+        validateBatchNumberUnique(medicineDetails.getBatchNumber(), id);
+        return medicineRepository.findByIdAndActiveTrue(id)
                 .map(medicine -> {
                     medicine.setName(medicineDetails.getName());
                     medicine.setCategory(medicineDetails.getCategory());
+                    medicine.setManufacturer(medicineDetails.getManufacturer());
+                    medicine.setBatchNumber(medicineDetails.getBatchNumber());
                     medicine.setPrice(medicineDetails.getPrice());
+                    medicine.setCostPrice(medicineDetails.getCostPrice());
                     medicine.setQuantity(medicineDetails.getQuantity());
+                    medicine.setReorderLevel(medicineDetails.getReorderLevel());
                     medicine.setExpiryDate(medicineDetails.getExpiryDate());
                     return medicineRepository.save(medicine);
                 })
@@ -58,14 +66,79 @@ public class MedicineService {
     }
 
     @Transactional
-    public void deleteMedicine(Long id) {
-        if (!medicineRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Medicine with ID " + id + " not found");
+    public Medicine updateMedicineByBatch(String batchNumber, Medicine medicineDetails) {
+        if (batchNumber == null || batchNumber.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Batch number is required");
         }
-        medicineRepository.deleteById(id);
+        if (medicineDetails == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Medicine details cannot be null");
+        }
+        validatePricing(medicineDetails);
+
+        return medicineRepository.findByBatchNumber(batchNumber)
+                .map(medicine -> {
+                    Long id = medicine.getId();
+                    String nextBatch = medicineDetails.getBatchNumber();
+                    if (nextBatch != null && !nextBatch.isBlank() && !nextBatch.equals(batchNumber)) {
+                        validateBatchNumberUnique(nextBatch, id);
+                        medicine.setBatchNumber(nextBatch);
+                    } else {
+                        medicine.setBatchNumber(batchNumber);
+                    }
+                    medicine.setName(medicineDetails.getName());
+                    medicine.setCategory(medicineDetails.getCategory());
+                    medicine.setManufacturer(medicineDetails.getManufacturer());
+                    medicine.setPrice(medicineDetails.getPrice());
+                    medicine.setCostPrice(medicineDetails.getCostPrice());
+                    medicine.setQuantity(medicineDetails.getQuantity());
+                    medicine.setReorderLevel(medicineDetails.getReorderLevel());
+                    medicine.setExpiryDate(medicineDetails.getExpiryDate());
+                    medicine.setActive(true);
+                    return medicineRepository.save(medicine);
+                })
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Medicine with batch " + batchNumber + " not found"));
+    }
+
+    private void validatePricing(Medicine medicine) {
+        if (medicine.getPrice() == null || medicine.getCostPrice() == null) {
+            return;
+        }
+        if (medicine.getCostPrice().compareTo(medicine.getPrice()) > 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Cost price must be less than or equal to price"
+            );
+        }
+    }
+
+    private void validateBatchNumberUnique(String batchNumber, Long currentId) {
+        if (batchNumber == null || batchNumber.isBlank()) {
+            return;
+        }
+        boolean exists = currentId == null
+                ? medicineRepository.existsByBatchNumber(batchNumber)
+                : medicineRepository.existsByBatchNumberAndIdNot(batchNumber, currentId);
+        if (exists) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Batch number already exists"
+            );
+        }
+    }
+
+    @Transactional
+    public void deleteMedicine(Long id) {
+        Medicine medicine = medicineRepository.findByIdAndActiveTrue(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Medicine with ID " + id + " not found"));
+        medicine.setActive(false);
+        medicineRepository.save(medicine);
     }
 
     public List<Medicine> getLowStockMedicines() {
         return medicineRepository.findLowStockMedicines(lowStockThreshold);
+    }
+
+    public int getLowStockThreshold() {
+        return lowStockThreshold;
     }
 }

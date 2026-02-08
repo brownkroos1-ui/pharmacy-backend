@@ -42,7 +42,7 @@ public class SecurityConfig {
                                 .requestMatchers("/api/auth/**", "/error").permitAll()
                                 // Role-based access rules
                                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                                .requestMatchers("/api/user/**").hasAnyRole("ADMIN", "USER")
+                                .requestMatchers("/api/user/**").hasAnyRole("ADMIN", "CASHIER")
                                 .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -34,6 +34,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             LocalDateTime end
     );
 
+
     // ================== SUM ==================
 
     @Query("""
@@ -43,6 +44,40 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
         AND s.saleDate BETWEEN :start AND :end
     """)
     BigDecimal sumTotalPriceByStatusAndDateBetween(
+            @Param("status") SaleStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(s.quantitySold * m.costPrice), 0)
+        FROM Sale s
+        JOIN s.medicine m
+        WHERE s.status = :status
+        AND s.saleDate BETWEEN :start AND :end
+    """)
+    BigDecimal sumTotalCostByStatusAndDateBetween(
+            @Param("status") SaleStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
+
+    @Query("""
+        SELECT new com.pharmacy.dto.ProfitByMedicineDto(
+            m.id,
+            m.name,
+            SUM(s.quantitySold),
+            COALESCE(SUM(s.totalPrice), 0),
+            COALESCE(SUM(s.quantitySold * m.costPrice), 0)
+        )
+        FROM Sale s
+        JOIN s.medicine m
+        WHERE s.status = :status
+        AND s.saleDate BETWEEN :start AND :end
+        GROUP BY m.id, m.name
+        ORDER BY (COALESCE(SUM(s.totalPrice), 0) - COALESCE(SUM(s.quantitySold * m.costPrice), 0)) DESC
+    """)
+    List<com.pharmacy.dto.ProfitByMedicineDto> findProfitByMedicine(
             @Param("status") SaleStatus status,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end

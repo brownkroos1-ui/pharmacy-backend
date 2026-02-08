@@ -24,6 +24,8 @@ public class AuthControllerSecurityTest {
         public void testRegisterAndLoginEndpoints() throws Exception {
 
             String username = "testuser_" + System.currentTimeMillis();
+            String name = "Test User";
+            String email = username + "@example.com";
 
             String password = "password";
 
@@ -35,7 +37,7 @@ public class AuthControllerSecurityTest {
 
                             .contentType(MediaType.APPLICATION_JSON)
 
-                            .content("{\"username\":\"" + username + "\", \"password\":\"" + password + "\"}"))
+                            .content("{\"username\":\"" + username + "\", \"name\":\"" + name + "\", \"email\":\"" + email + "\", \"password\":\"" + password + "\"}"))
 
                     .andExpect(status().isCreated());
 
