@@ -2,6 +2,7 @@ package com.pharmacy.controller;
 
 import com.pharmacy.dto.LoginRequest;
 import com.pharmacy.dto.LoginResponse;
+import com.pharmacy.dto.RefreshTokenRequest;
 import com.pharmacy.dto.RegisterRequest;
 import com.pharmacy.model.Role;
 import com.pharmacy.model.User;
@@ -60,8 +61,9 @@ public class AuthController {
                           .replace("ROLE_", "");
 
         String token = jwtUtil.generateToken(user.getUsername(), role);
+        String refreshToken = jwtUtil.generateRefreshToken(user.getUsername(), role);
 
-        return new LoginResponse(token, role);
+        return new LoginResponse(token, role, refreshToken);
     }
 
     @PostMapping("/register")
@@ -110,7 +112,43 @@ public class AuthController {
         log.info("Register success username={}", username);
 
         String token = jwtUtil.generateToken(newUser.getUsername(), newUser.getRole().name());
+        String refreshToken = jwtUtil.generateRefreshToken(newUser.getUsername(), newUser.getRole().name());
 
-        return org.springframework.http.ResponseEntity.status(HttpStatus.CREATED).body(new LoginResponse(token, newUser.getRole().name()));
+        return org.springframework.http.ResponseEntity.status(HttpStatus.CREATED)
+                .body(new LoginResponse(token, newUser.getRole().name(), refreshToken));
+    }
+
+    @PostMapping("/refresh")
+    public LoginResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        if (request == null || request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Refresh token is required");
+        }
+
+        io.jsonwebtoken.Claims claims;
+        try {
+            claims = jwtUtil.parseToken(request.getRefreshToken()).getBody();
+        } catch (io.jsonwebtoken.JwtException ex) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+        }
+        String type = claims.get("type", String.class);
+        if (!"refresh".equals(type)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+        }
+
+        String username = claims.getSubject();
+        if (username == null || username.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+        }
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        if (!user.isActive()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is disabled");
+        }
+
+        String role = user.getRole() != null ? user.getRole().name() : "CASHIER";
+        String token = jwtUtil.generateToken(user.getUsername(), role);
+        String refreshToken = jwtUtil.generateRefreshToken(user.getUsername(), role);
+        return new LoginResponse(token, role, refreshToken);
     }
 }

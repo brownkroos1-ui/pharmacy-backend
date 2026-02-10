@@ -1,0 +1,47 @@
+name: Backend CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: "ci-test-secret-ci-test-secret-ci-test-secret"
+      ADMIN_BOOTSTRAP_PASSWORD: "ci-admin-password"
+      ADMIN_BOOTSTRAP_SECRET: "ci-bootstrap-secret"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+          cache: "maven"
+
+      - name: Run tests
+        run: ./mvnw -B -Dtest=AuthControllerTest,AuthControllerRefreshTest,AdminDashboardServiceTest test
+
+  build:
+    runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: "ci-test-secret-ci-test-secret-ci-test-secret"
+      ADMIN_BOOTSTRAP_PASSWORD: "ci-admin-password"
+      ADMIN_BOOTSTRAP_SECRET: "ci-bootstrap-secret"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+          cache: "maven"
+
+      - name: Build (skip tests)
+        run: ./mvnw -B -DskipTests package

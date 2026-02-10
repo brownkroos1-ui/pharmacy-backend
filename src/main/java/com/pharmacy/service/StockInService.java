@@ -22,13 +22,16 @@ public class StockInService {
     private final StockInRepository stockInRepository;
     private final MedicineRepository medicineRepository;
     private final SupplierRepository supplierRepository;
+    private final AuditLogService auditLogService;
 
     public StockInService(StockInRepository stockInRepository,
                           MedicineRepository medicineRepository,
-                          SupplierRepository supplierRepository) {
+                          SupplierRepository supplierRepository,
+                          AuditLogService auditLogService) {
         this.stockInRepository = stockInRepository;
         this.medicineRepository = medicineRepository;
         this.supplierRepository = supplierRepository;
+        this.auditLogService = auditLogService;
     }
 
     public List<StockIn> getAllStockIns() {
@@ -40,6 +43,11 @@ public class StockInService {
         if (request == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Stock-in request cannot be null");
         }
+
+        boolean createdNewMedicine = request.getMedicineId() == null
+                && request.getBatchNumber() != null
+                && !request.getBatchNumber().isBlank()
+                && !medicineRepository.existsByBatchNumber(request.getBatchNumber());
 
         Supplier supplier = supplierRepository.findByIdAndActiveTrue(request.getSupplierId())
                 .orElseThrow(() -> new ResponseStatusException(
@@ -63,7 +71,28 @@ public class StockInService {
         stockIn.setInvoiceNumber(request.getInvoiceNumber());
         stockIn.setNote(request.getNote());
         stockIn.setReceivedAt(LocalDateTime.now());
-        return stockInRepository.save(stockIn);
+        StockIn saved = stockInRepository.save(stockIn);
+
+        if (createdNewMedicine) {
+            auditLogService.log(
+                    "CREATE",
+                    "MEDICINE",
+                    medicine.getId(),
+                    "Created medicine via stock-in " + medicine.getName() + " (batch " + medicine.getBatchNumber() + ")"
+            );
+        }
+
+        auditLogService.log(
+                "STOCK_IN",
+                "MEDICINE",
+                medicine.getId(),
+                "Stock-in +" + quantity + " units for " + medicine.getName()
+                        + " (batch " + medicine.getBatchNumber() + ")"
+                        + " from supplier " + supplier.getName()
+                        + (request.getInvoiceNumber() != null ? " invoice " + request.getInvoiceNumber() : "")
+        );
+
+        return saved;
     }
 
     private Medicine resolveMedicine(StockInRequest request) {

@@ -26,10 +26,14 @@ public class SaleService {
 
     private final MedicineRepository medicineRepository;
     private final SaleRepository saleRepository;
+    private final AuditLogService auditLogService;
 
-    public SaleService(MedicineRepository medicineRepository, SaleRepository saleRepository) {
+    public SaleService(MedicineRepository medicineRepository,
+                       SaleRepository saleRepository,
+                       AuditLogService auditLogService) {
         this.medicineRepository = medicineRepository;
         this.saleRepository = saleRepository;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional
@@ -45,13 +49,27 @@ public class SaleService {
         // Check Expiry
         if (medicine.getExpiryDate().isBefore(LocalDate.now())) {
             sale.setStatus(SaleStatus.REJECTED_EXPIRED);
-            return saleRepository.save(sale);
+            Sale saved = saleRepository.save(sale);
+            auditLogService.log(
+                    "SALE_REJECTED",
+                    "SALE",
+                    saved.getId(),
+                    "Rejected expired sale for " + medicine.getName() + " (batch " + medicine.getBatchNumber() + ") qty " + request.getQuantity()
+            );
+            return saved;
         }
 
         // Check Stock
         if (medicine.getQuantity() < request.getQuantity()) {
             sale.setStatus(SaleStatus.REJECTED_OUT_OF_STOCK);
-            return saleRepository.save(sale);
+            Sale saved = saleRepository.save(sale);
+            auditLogService.log(
+                    "SALE_REJECTED",
+                    "SALE",
+                    saved.getId(),
+                    "Rejected out-of-stock sale for " + medicine.getName() + " (batch " + medicine.getBatchNumber() + ") qty " + request.getQuantity()
+            );
+            return saved;
         }
 
         // Reduce Stock
@@ -60,7 +78,15 @@ public class SaleService {
 
         // Finalize Sale
         sale.setStatus(SaleStatus.VALID);
-        return saleRepository.save(sale);
+        Sale saved = saleRepository.save(sale);
+        auditLogService.log(
+                "SALE",
+                "SALE",
+                saved.getId(),
+                "Sale for " + medicine.getName() + " (batch " + medicine.getBatchNumber() + ") qty "
+                        + request.getQuantity() + " remaining " + medicine.getQuantity()
+        );
+        return saved;
     }
 
     public ProfitSummaryDto getProfitSummary(LocalDate startDate, LocalDate endDate) {

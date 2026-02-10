@@ -21,11 +21,14 @@ public class AdminUserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     public AdminUserService(UserRepository userRepository,
-                            PasswordEncoder passwordEncoder) {
+                            PasswordEncoder passwordEncoder,
+                            AuditLogService auditLogService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.auditLogService = auditLogService;
     }
 
     public List<AdminUserDto> listUsers(String query, Role role, Boolean active) {
@@ -62,7 +65,14 @@ public class AdminUserService {
         user.setEmail(email == null || email.isBlank() ? null : email);
         user.setRole(request.getRole() == null ? Role.CASHIER : request.getRole());
         user.setActive(request.getActive() == null ? true : request.getActive());
-        return toDto(userRepository.save(user));
+        User saved = userRepository.save(user);
+        auditLogService.log(
+                "CREATE",
+                "USER",
+                saved.getId(),
+                "Created user " + saved.getUsername() + " role " + saved.getRole()
+        );
+        return toDto(saved);
     }
 
     @Transactional
@@ -81,8 +91,17 @@ public class AdminUserService {
                     "You cannot change your own role"
             );
         }
+        Role previousRole = user.getRole();
         user.setRole(role);
-        return toDto(userRepository.save(user));
+        User saved = userRepository.save(user);
+        auditLogService.log(
+                "UPDATE_ROLE",
+                "USER",
+                saved.getId(),
+                "Updated role for " + saved.getUsername() + " from " + previousRole + " to " + role,
+                actorUsername
+        );
+        return toDto(saved);
     }
 
     @Transactional
@@ -98,8 +117,17 @@ public class AdminUserService {
                     "You cannot disable your own account"
             );
         }
+        boolean previous = user.isActive();
         user.setActive(active);
-        return toDto(userRepository.save(user));
+        User saved = userRepository.save(user);
+        auditLogService.log(
+                "UPDATE_STATUS",
+                "USER",
+                saved.getId(),
+                "Updated status for " + saved.getUsername() + " from " + previous + " to " + active,
+                actorUsername
+        );
+        return toDto(saved);
     }
 
     @Transactional
@@ -110,7 +138,15 @@ public class AdminUserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         user.setPassword(passwordEncoder.encode(request.getPassword().trim()));
-        return toDto(userRepository.save(user));
+        User saved = userRepository.save(user);
+        auditLogService.log(
+                "RESET_PASSWORD",
+                "USER",
+                saved.getId(),
+                "Reset password for " + saved.getUsername(),
+                actorUsername
+        );
+        return toDto(saved);
     }
 
     private AdminUserDto toDto(User user) {
