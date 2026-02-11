@@ -27,7 +27,7 @@ jobs:
         run: chmod +x mvnw
 
       - name: Run tests
-        run: ./mvnw -B -Dtest=AuthControllerTest,AuthControllerRefreshTest,AdminDashboardServiceTest test
+        run: bash ./mvnw -B -Dtest=AuthControllerTest,AuthControllerRefreshTest,AdminDashboardServiceTest test
 
   build:
     runs-on: ubuntu-latest
@@ -50,4 +50,4 @@ jobs:
         run: chmod +x mvnw
 
       - name: Build (skip tests)
-        run: ./mvnw -B -DskipTests package
+        run: bash ./mvnw -B -DskipTests package
