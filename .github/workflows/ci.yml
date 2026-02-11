@@ -23,6 +23,9 @@ jobs:
           java-version: "17"
           cache: "maven"
 
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
       - name: Run tests
         run: ./mvnw -B -Dtest=AuthControllerTest,AuthControllerRefreshTest,AdminDashboardServiceTest test
 
@@ -42,6 +45,9 @@ jobs:
           distribution: "temurin"
           java-version: "17"
           cache: "maven"
+
+      - name: Make mvnw executable
+        run: chmod +x mvnw
 
       - name: Build (skip tests)
         run: ./mvnw -B -DskipTests package
