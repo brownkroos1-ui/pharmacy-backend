@@ -39,7 +39,7 @@ class AdminDashboardServiceTest {
     @Test
     void getDashboardCounts_aggregatesExpectedValues() {
         when(userRepo.count()).thenReturn(42L);
-        when(medicineRepo.count()).thenReturn(100L);
+        when(medicineRepo.countByActiveTrue()).thenReturn(100L);
         when(medicineRepo.countLowStockMedicines(10)).thenReturn(7L);
         when(medicineRepo.countOutOfStockMedicines()).thenReturn(3L);
 
