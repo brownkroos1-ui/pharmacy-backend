@@ -4,6 +4,7 @@ on:
   push:
     branches: ["main", "master"]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -25,6 +26,9 @@ jobs:
 
       - name: Make mvnw executable
         run: chmod +x mvnw
+
+      - name: Show mvnw permissions
+        run: ls -l mvnw
 
       - name: Run tests
         run: bash ./mvnw -B -Dtest=AuthControllerTest,AuthControllerRefreshTest,AdminDashboardServiceTest test
@@ -48,6 +52,9 @@ jobs:
 
       - name: Make mvnw executable
         run: chmod +x mvnw
+
+      - name: Show mvnw permissions
+        run: ls -l mvnw
 
       - name: Build (skip tests)
         run: bash ./mvnw -B -DskipTests package
